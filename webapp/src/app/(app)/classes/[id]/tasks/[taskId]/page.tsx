@@ -4,6 +4,7 @@ import { getClassContext } from "@/lib/class-access";
 import { criterionLabel } from "@/lib/myp";
 import { TaskBadges } from "../task-badges";
 import { SubmitBox } from "./submit-box";
+import { DeleteTaskButton } from "./delete-task-button";
 
 function fmtSize(bytes: number) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -48,8 +49,21 @@ export default async function TaskDetailPage({
               {task.dueAt.getDate()}
             </p>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">{task.title}</h2>
+          <div className="flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900">{task.title}</h2>
+              {canManage && (
+                <div className="flex items-center gap-3 shrink-0">
+                  <a
+                    href={`/classes/${cls.id}/tasks/${task.id}/edit`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Edit
+                  </a>
+                  <DeleteTaskButton classId={cls.id} taskId={task.id} />
+                </div>
+              )}
+            </div>
             <TaskBadges type={task.type} category={task.category} />
             <p className="text-sm text-slate-500 mt-2">
               Due{" "}

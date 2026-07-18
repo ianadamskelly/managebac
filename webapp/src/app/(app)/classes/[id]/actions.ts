@@ -81,6 +81,61 @@ export async function createTask(classId: string, formData: FormData) {
   redirect(`/classes/${classId}/tasks/${task.id}`);
 }
 
+// ── Update task ──
+
+export async function updateTask(classId: string, taskId: string, formData: FormData) {
+  await requireManage(classId);
+  const existing = await db.task.findFirst({ where: { id: taskId, classId } });
+  if (!existing) throw new Error("Task not found");
+
+  const parsed = CreateTaskSchema.parse({
+    title: formData.get("title"),
+    type: formData.get("type"),
+    model: formData.get("model"),
+    categoryId: formData.get("categoryId") || undefined,
+    unitId: formData.get("unitId") || undefined,
+    maxPoints: formData.get("maxPoints") || undefined,
+    criteria: formData.getAll("criteria"),
+    dueAt: formData.get("dueAt"),
+    description: formData.get("description") || undefined,
+    dropboxEnabled: formData.get("dropboxEnabled") === "on",
+  });
+
+  if (parsed.unitId) {
+    const unit = await db.unit.findFirst({ where: { id: parsed.unitId, classId } });
+    if (!unit) throw new Error("Unit not found in this class");
+  }
+
+  await db.task.update({
+    where: { id: taskId },
+    data: {
+      title: parsed.title,
+      type: parsed.type,
+      model: parsed.model,
+      categoryId: parsed.categoryId ?? null,
+      unitId: parsed.unitId ?? null,
+      maxPoints: parsed.model === "POINTS" ? parsed.maxPoints ?? 100 : null,
+      criteria: parsed.model === "CRITERIA" || parsed.model === "POINTS" ? parsed.criteria : [],
+      dueAt: parsed.dueAt,
+      description: parsed.description ?? null,
+      dropboxEnabled: parsed.dropboxEnabled,
+    },
+  });
+  revalidatePath(`/classes/${classId}/tasks/${taskId}`);
+  redirect(`/classes/${classId}/tasks/${taskId}`);
+}
+
+// ── Delete task ──
+
+export async function deleteTask(classId: string, taskId: string) {
+  await requireManage(classId);
+  const existing = await db.task.findFirst({ where: { id: taskId, classId } });
+  if (!existing) throw new Error("Task not found");
+  await db.task.delete({ where: { id: taskId } });
+  revalidatePath(`/classes/${classId}/tasks`);
+  redirect(`/classes/${classId}/tasks`);
+}
+
 // ── Task grade (gradebook cell) ──
 
 const GradeSchema = z.object({

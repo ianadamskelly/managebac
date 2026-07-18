@@ -18,6 +18,7 @@ export function YearGroupTabs({
     { href: base, label: "Overview", exact: true },
     { href: `${base}/activities`, label: activityTabLabel },
     ...(hasProjects ? [{ href: `${base}/projects`, label: "Projects" }] : []),
+    { href: `${base}/discussions`, label: "Discussions" },
   ];
 
   return (

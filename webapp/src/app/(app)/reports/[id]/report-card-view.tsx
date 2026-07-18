@@ -112,6 +112,13 @@ export function ReportCardView({
             <p className="text-sm text-slate-500">No subjects recorded for this term.</p>
           )}
         </div>
+
+        {content.advisoryComment && (
+          <section className="border border-slate-200 rounded-lg p-4 mt-5 break-inside-avoid">
+            <h2 className="font-semibold text-slate-900 mb-1">Homeroom Advisor Comment</h2>
+            <p className="text-sm text-slate-700 whitespace-pre-wrap">{content.advisoryComment}</p>
+          </section>
+        )}
       </article>
     </div>
   );

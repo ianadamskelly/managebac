@@ -93,6 +93,10 @@ export async function generateReports(formData: FormData) {
       };
     });
 
+    const advisory = await db.advisoryComment.findUnique({
+      where: { studentId_termId: { studentId, termId: term.id } },
+    });
+
     const content = {
       student: {
         name: `${m.user.firstName} ${m.user.lastName}`,
@@ -102,6 +106,7 @@ export async function generateReports(formData: FormData) {
       term: { name: term.name, academicYear: term.academicYear.name },
       yearGroup: yg.name,
       subjects,
+      advisoryComment: advisory?.comment ?? null,
     };
 
     await db.reportCard.upsert({

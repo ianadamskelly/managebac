@@ -76,6 +76,8 @@ model User {
   authoredBehaviourNotes BehaviourNote[]     @relation("AuthoredBehaviourNotes")
   discussions          Discussion[]          @relation("AuthoredDiscussions")
   discussionComments   DiscussionComment[]   @relation("AuthoredDiscussionComments")
+  advisoryComments     AdvisoryComment[]     @relation("StudentAdvisoryComments")
+  authoredAdvisoryComments AdvisoryComment[] @relation("AuthoredAdvisoryComments")
 
   @@unique([schoolId, email])
   @@index([schoolId, role, archived])
@@ -163,9 +165,10 @@ model Term {
   endsOn         DateTime
   order          Int          @default(0)
 
-  classLinks  ClassTerm[]
-  termGrades  TermGrade[]
-  reportCards ReportCard[]
+  classLinks       ClassTerm[]
+  termGrades       TermGrade[]
+  reportCards      ReportCard[]
+  advisoryComments AdvisoryComment[]
 }
 
 // ─────────────────────────────── Year groups ───────────────────────────────
@@ -189,6 +192,7 @@ model YearGroup {
   activities  Activity[]
   projects    Project[]
   reportCards ReportCard[]
+  discussions Discussion[]
 
   @@index([schoolId, archived])
 }
@@ -520,21 +524,25 @@ model ProjectJournalEntry {
 
 // ─────────────────────────────── Discussions ───────────────────────────────
 
+// A discussion belongs to exactly one context: a class OR a year group.
 model Discussion {
-  id        String   @id @default(cuid())
-  schoolId  String
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation("AuthoredDiscussions", fields: [authorId], references: [id])
-  title     String
-  body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String     @id @default(cuid())
+  schoolId    String
+  classId     String?
+  class       Class?     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  yearGroupId String?
+  yearGroup   YearGroup? @relation(fields: [yearGroupId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User       @relation("AuthoredDiscussions", fields: [authorId], references: [id])
+  title       String
+  body        String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   comments DiscussionComment[]
 
   @@index([classId, updatedAt])
+  @@index([yearGroupId, updatedAt])
 }
 
 model DiscussionComment {
@@ -547,6 +555,24 @@ model DiscussionComment {
   createdAt    DateTime   @default(now())
 
   @@index([discussionId, createdAt])
+}
+
+// ─────────────────────────── Homeroom advisory comments ───────────────────────────
+
+// A homeroom advisor's per-term pastoral comment on a student.
+model AdvisoryComment {
+  id        String   @id @default(cuid())
+  schoolId  String
+  studentId String
+  student   User     @relation("StudentAdvisoryComments", fields: [studentId], references: [id], onDelete: Cascade)
+  termId    String
+  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AuthoredAdvisoryComments", fields: [authorId], references: [id])
+  comment   String
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, termId])
 }
 
 // ─────────────────────────── Behaviour & Discipline ───────────────────────────

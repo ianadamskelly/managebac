@@ -14,6 +14,7 @@ export type ReportContent = {
     localGrade: string | null;
     comment: string | null;
   }[];
+  advisoryComment?: string | null;
 };
 
 /**

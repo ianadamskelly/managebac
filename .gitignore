@@ -3,6 +3,9 @@
 .env.*
 webapp/.env
 webapp/.env.*
+# …but do commit the example templates (no real secrets)
+!.env.example
+!webapp/.env.example
 
 # OS
 .DS_Store

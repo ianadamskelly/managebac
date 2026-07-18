@@ -15,6 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect("/login");
   const school = await currentSchool();
   const isAdmin = session.role === "ADMIN";
+  const isParent = session.role === "PARENT";
   const initials = session.name
     .split(" ")
     .map((p) => p[0])
@@ -58,13 +59,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* Left nav */}
       <aside className="fixed top-14 bottom-0 left-0 w-56 bg-white border-r border-slate-200 py-4 px-2 overflow-y-auto z-10 hidden md:block">
         <nav className="space-y-1">
-          <NavLink href="/home" label="My Workspace" />
-          <NavLink href="/tasks" label="Tasks & Deadlines" />
-          <NavLink href="/activities" label="CAS & Service" />
-          <NavLink href="/portfolio" label="Portfolio" />
-          <NavLink href="/year-groups" label="Year Groups" />
-          <NavLink href="/classes" label="Classes" />
-          {isAdmin && <NavLink href="/directory" label="School Directory" />}
+          {isParent ? (
+            <NavLink href="/home" label="My Children" />
+          ) : (
+            <>
+              <NavLink href="/home" label="My Workspace" />
+              <NavLink href="/tasks" label="Tasks & Deadlines" />
+              <NavLink href="/activities" label="CAS & Service" />
+              <NavLink href="/portfolio" label="Portfolio" />
+              <NavLink href="/year-groups" label="Year Groups" />
+              <NavLink href="/classes" label="Classes" />
+              {isAdmin && <NavLink href="/directory" label="School Directory" />}
+            </>
+          )}
         </nav>
       </aside>
 

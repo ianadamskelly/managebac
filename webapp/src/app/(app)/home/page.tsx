@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { myChildren } from "@/lib/parent";
+import { ParentHome } from "./parent-home";
 
 export default async function HomePage() {
   const session = (await getSession())!;
@@ -10,6 +12,11 @@ export default async function HomePage() {
     month: "long",
     day: "numeric",
   });
+
+  if (session.role === "PARENT") {
+    const children = await myChildren();
+    return <ParentHome name={session.name.split(" ")[0]} today={today} children={children} />;
+  }
 
   const [yearGroupCount, classCount, studentCount, myClasses] = await Promise.all([
     db.yearGroup.count({ where: { schoolId: session.schoolId, archived: false } }),

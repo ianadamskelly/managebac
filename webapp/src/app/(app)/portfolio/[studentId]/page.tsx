@@ -16,6 +16,12 @@ async function canView(
 ) {
   if (session.userId === studentId) return true;
   if (session.role === "ADMIN") return true;
+  if (session.role === "PARENT") {
+    const linked = await db.parentChild.count({
+      where: { parentId: session.userId, studentId },
+    });
+    return linked > 0;
+  }
   if (session.role === "TEACHER") {
     const shares = await db.classMembership.count({
       where: {

@@ -16,6 +16,7 @@ export function ClassTabs({ classId, canManage }: { classId: string; canManage: 
           { href: `${base}/term-grades`, label: "Term Grades" },
         ]
       : []),
+    { href: `${base}/discussions`, label: "Discussions" },
     { href: `${base}/members`, label: "Members" },
   ];
 

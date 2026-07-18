@@ -74,6 +74,8 @@ model User {
   reportCards          ReportCard[]
   behaviourNotes       BehaviourNote[]       @relation("StudentBehaviourNotes")
   authoredBehaviourNotes BehaviourNote[]     @relation("AuthoredBehaviourNotes")
+  discussions          Discussion[]          @relation("AuthoredDiscussions")
+  discussionComments   DiscussionComment[]   @relation("AuthoredDiscussionComments")
 
   @@unique([schoolId, email])
   @@index([schoolId, role, archived])
@@ -250,6 +252,7 @@ model Class {
   tasks       Task[]
   termGrades  TermGrade[]
   units       Unit[]
+  discussions Discussion[]
 
   @@index([schoolId, programmeId, archived])
 }
@@ -513,6 +516,37 @@ model ProjectJournalEntry {
   author       User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   content      String
   createdAt    DateTime          @default(now())
+}
+
+// ─────────────────────────────── Discussions ───────────────────────────────
+
+model Discussion {
+  id        String   @id @default(cuid())
+  schoolId  String
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AuthoredDiscussions", fields: [authorId], references: [id])
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments DiscussionComment[]
+
+  @@index([classId, updatedAt])
+}
+
+model DiscussionComment {
+  id           String     @id @default(cuid())
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User       @relation("AuthoredDiscussionComments", fields: [authorId], references: [id])
+  body         String
+  createdAt    DateTime   @default(now())
+
+  @@index([discussionId, createdAt])
 }
 
 // ─────────────────────────── Behaviour & Discipline ───────────────────────────

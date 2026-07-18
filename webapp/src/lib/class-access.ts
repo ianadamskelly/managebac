@@ -31,8 +31,10 @@ export async function getClassContext(classId: string) {
   const isTeacher = membership?.role === "TEACHER";
   const canManage = session.role === "ADMIN" || isTeacher;
   const isStudent = membership?.role === "STUDENT";
+  // Anyone who can see class content: admins + class members (teachers/students).
+  const isMember = session.role === "ADMIN" || membership != null;
 
-  return { session, cls, canManage, isStudent };
+  return { session, cls, canManage, isStudent, isMember };
 }
 
 export function classDisplayName(cls: {

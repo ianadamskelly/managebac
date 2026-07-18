@@ -1,0 +1,558 @@
+// ManageBac-style school platform — Phase 1 schema
+// Tenancy: every row belongs to a School; email uniqueness is per-school
+// (login is scoped by the school's subdomain, like hia.managebac.com).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── Tenancy ───────────────────────────────
+
+model School {
+  id        String   @id @default(cuid())
+  subdomain String   @unique
+  name      String
+  logoUrl   String?
+  timezone  String   @default("Africa/Nairobi")
+  theme     String   @default("blue") // blue | orange | red | plum | teal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  programmes    Programme[]
+  gradeLevels   GradeLevel[]
+  academicYears AcademicYear[]
+  yearGroups    YearGroup[]
+  subjects      Subject[]
+  classes       Class[]
+}
+
+// ─────────────────────────────── Users ───────────────────────────────
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+  OBSERVER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  schoolId     String
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  role         Role
+  email        String
+  passwordHash String?
+  firstName    String
+  lastName     String
+  studentCode  String? // e.g. #HIAB0022
+  gradeLevelId String? // students: current grade level
+  gradeLevel   GradeLevel? @relation(fields: [gradeLevelId], references: [id])
+  jobFunctions String? // teachers: "Technology Director" etc.
+  archived     Boolean   @default(false)
+  lastAccessAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  childLinks  ParentChild[] @relation("ParentLinks")
+  parentLinks ParentChild[] @relation("StudentLinks")
+
+  yearGroupMemberships YearGroupMembership[]
+  classMemberships     ClassMembership[]
+  activities           Activity[]            @relation("StudentActivities")
+  activityReflections  ActivityReflection[]
+  projectEnrollments   ProjectEnrollment[]   @relation("StudentEnrollments")
+  supervisedEnrollments ProjectEnrollment[]  @relation("SupervisedEnrollments")
+  projectJournalEntries ProjectJournalEntry[]
+  portfolioEntries     PortfolioEntry[]
+
+  @@unique([schoolId, email])
+  @@index([schoolId, role, archived])
+}
+
+model ParentChild {
+  parentId  String
+  parent    User   @relation("ParentLinks", fields: [parentId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User   @relation("StudentLinks", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+}
+
+// ──────────────────────── Programmes & grade levels ────────────────────────
+
+// Programme = enabled curriculum framework (IB DP / MYP / PYP, Cambridge, ...)
+model Programme {
+  id           String @id @default(cuid())
+  schoolId     String
+  school       School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  code         String // "diploma" | "myp" | "pyp" | ...
+  name         String // "IB Diploma"
+  displayOrder Int    @default(0)
+
+  gradeLevels    ProgrammeGradeLevel[]
+  academicYears  AcademicYear[]
+  yearGroups     YearGroup[]
+  subjects       Subject[]
+  classes        Class[]
+  taskCategories TaskCategory[]
+
+  @@unique([schoolId, code])
+}
+
+model GradeLevel {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name     String // "KG1", "Grade 7", ...
+  order    Int // sort order across the school, ascending age
+
+  programmes ProgrammeGradeLevel[]
+  students   User[]
+  yearGroups YearGroup[]
+  classes    Class[]
+
+  @@unique([schoolId, name])
+}
+
+// The Grades & Levels matrix: which grade levels belong to which programme
+model ProgrammeGradeLevel {
+  programmeId  String
+  programme    Programme  @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  gradeLevelId String
+  gradeLevel   GradeLevel @relation(fields: [gradeLevelId], references: [id], onDelete: Cascade)
+
+  @@id([programmeId, gradeLevelId])
+}
+
+// ──────────────────────── Academic years & terms ────────────────────────
+
+model AcademicYear {
+  id          String    @id @default(cuid())
+  schoolId    String
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  programmeId String
+  programme   Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  name        String // "August 2026 – June 2027"
+  startsOn    DateTime
+  endsOn      DateTime
+  isCurrent   Boolean   @default(false)
+
+  terms Term[]
+
+  @@index([schoolId, programmeId])
+}
+
+model Term {
+  id             String       @id @default(cuid())
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  name           String // "Semester 1"
+  startsOn       DateTime
+  endsOn         DateTime
+  order          Int          @default(0)
+
+  classLinks ClassTerm[]
+  termGrades TermGrade[]
+}
+
+// ─────────────────────────────── Year groups ───────────────────────────────
+
+model YearGroup {
+  id             String     @id @default(cuid())
+  schoolId       String
+  school         School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  programmeId    String
+  programme      Programme  @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  gradeLevelId   String
+  gradeLevel     GradeLevel @relation(fields: [gradeLevelId], references: [id])
+  name           String // "IB Middle Years Class of 2028"
+  graduationYear Int
+  description    String?
+  bulletin       String? // announcement shown on Overview
+  archived       Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+
+  memberships YearGroupMembership[]
+  activities  Activity[]
+  projects    Project[]
+
+  @@index([schoolId, archived])
+}
+
+enum YearGroupRole {
+  STUDENT
+  HOMEROOM_ADVISOR
+  ADVISOR // CAS/SA/SL, project supervisors etc. (refined in Phase 3)
+}
+
+model YearGroupMembership {
+  yearGroupId String
+  yearGroup   YearGroup     @relation(fields: [yearGroupId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        YearGroupRole @default(STUDENT)
+  joinedAt    DateTime      @default(now())
+
+  @@id([yearGroupId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────── Subjects & classes ───────────────────────────────
+
+model Subject {
+  id           String    @id @default(cuid())
+  schoolId     String
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  programmeId  String
+  programme    Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  name         String // "Biology"
+  subjectGroup String // "Sciences", "Core", ...
+  archived     Boolean   @default(false)
+
+  classes Class[]
+
+  @@unique([schoolId, programmeId, name, subjectGroup])
+}
+
+model Class {
+  id           String     @id @default(cuid())
+  schoolId     String
+  school       School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  programmeId  String
+  programme    Programme  @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  subjectId    String
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  gradeLevelId String
+  gradeLevel   GradeLevel @relation(fields: [gradeLevelId], references: [id])
+  name         String? // blank → subject name
+  section      String? // "A", "B"
+  externalId   String? // school SIS class ID, e.g. "DP1EngSL"
+  level        String? // DP: "HL"/"SL"; MYP phases etc.
+  description  String?
+  bulletin     String?
+  archived     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  termLinks   ClassTerm[]
+  memberships ClassMembership[]
+  tasks       Task[]
+  termGrades  TermGrade[]
+  units       Unit[]
+
+  @@index([schoolId, programmeId, archived])
+}
+
+model ClassTerm {
+  classId String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  termId  String
+  term    Term   @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@id([classId, termId])
+}
+
+enum ClassRole {
+  TEACHER
+  STUDENT
+}
+
+model ClassMembership {
+  classId  String
+  class    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     ClassRole @default(STUDENT)
+  joinedAt DateTime  @default(now())
+
+  @@id([classId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────── Tasks & assessment ───────────────────────────────
+
+enum TaskType {
+  SUMMATIVE
+  FORMATIVE
+}
+
+enum AssessmentModel {
+  POINTS
+  CRITERIA
+  BINARY
+  OBSERVATION
+}
+
+// School-configurable task categories per programme (Exam, Project, ...)
+model TaskCategory {
+  id            String    @id @default(cuid())
+  schoolId      String
+  programmeId   String
+  programme     Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  name          String
+  color         String    @default("#2563eb")
+  defaultWeight Int? // percentage weight toward term grade
+
+  tasks Task[]
+
+  @@unique([schoolId, programmeId, name])
+}
+
+model Task {
+  id                String          @id @default(cuid())
+  schoolId          String
+  classId           String
+  class             Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?
+  type              TaskType        @default(SUMMATIVE)
+  categoryId        String?
+  category          TaskCategory?   @relation(fields: [categoryId], references: [id])
+  model             AssessmentModel @default(POINTS)
+  unitId            String?
+  unit              Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  maxPoints         Int? // POINTS model
+  criteria          String[] // CRITERIA model: which criteria apply, e.g. ["A","B","C","D"]
+  dueAt             DateTime
+  submissionsOpenAt DateTime?
+  dropboxEnabled    Boolean         @default(true)
+  resultsPublished  Boolean         @default(true)
+  createdById       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  submissions Submission[]
+  grades      TaskGrade[]
+
+  @@index([classId, dueAt])
+}
+
+model Submission {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentId   String
+  fileName    String
+  storagePath String // relative path inside the uploads directory
+  fileSize    Int
+  mimeType    String
+  submittedAt DateTime @default(now())
+
+  @@unique([taskId, studentId]) // one live submission per student; re-upload replaces
+}
+
+model TaskGrade {
+  id             String  @id @default(cuid())
+  taskId         String
+  task           Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentId      String
+  points         Int? // POINTS
+  criteriaLevels Json? // CRITERIA: {"A": 7, "B": 6}
+  complete       Boolean? // BINARY
+  comment        String?
+  updatedAt      DateTime @updatedAt
+
+  @@unique([taskId, studentId])
+}
+
+// ─────────────────────────────── Units (curriculum planner) ───────────────────────────────
+
+enum UnitStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Unit {
+  id            String     @id @default(cuid())
+  schoolId      String
+  classId       String
+  class         Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  startsOn      DateTime?
+  durationWeeks Int?
+  status        UnitStatus @default(ACTIVE)
+  // Planner content keyed by section (per-programme section set defined in code),
+  // e.g. { "statement_of_inquiry": "...", "key_concepts": "..." }
+  sections      Json?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tasks Task[]
+
+  @@index([classId, status])
+}
+
+// ─────────────────────────── Activities (CAS / SA / SL) ───────────────────────────
+
+enum ActivityStatus {
+  PROPOSED
+  APPROVED
+  COMPLETED
+  REJECTED
+}
+
+model Activity {
+  id              String         @id @default(cuid())
+  schoolId        String
+  studentId       String
+  student         User           @relation("StudentActivities", fields: [studentId], references: [id], onDelete: Cascade)
+  yearGroupId     String
+  yearGroup       YearGroup      @relation(fields: [yearGroupId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  // CAS strands for DP ("creativity" | "activity" | "service"); unused for SA/SL
+  categories      String[]
+  status          ActivityStatus @default(PROPOSED)
+  startsOn        DateTime?
+  endsOn          DateTime?
+  hours           Float?
+  supervisorName  String?
+  supervisorEmail String?
+  // learning-outcome keys from the per-programme catalogue in code
+  outcomes        String[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  reflections ActivityReflection[]
+
+  @@index([yearGroupId, studentId])
+}
+
+model ActivityReflection {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+// ─────────────────────────── PBL projects (Personal Project, EE, …) ───────────────────────────
+
+enum ProjectType {
+  PERSONAL_PROJECT
+  COMMUNITY_PROJECT
+  EXTENDED_ESSAY
+  TOK_ESSAY
+  EXHIBITION
+}
+
+enum ProjectStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  COMPLETED
+}
+
+// A project defined at year-group level that its students each work on.
+model Project {
+  id          String      @id @default(cuid())
+  schoolId    String
+  yearGroupId String
+  yearGroup   YearGroup   @relation(fields: [yearGroupId], references: [id], onDelete: Cascade)
+  name        String
+  type        ProjectType
+  criteria    String[] // e.g. ["A","B","C"] with criterionLabel lookups
+  createdAt   DateTime    @default(now())
+
+  enrollments ProjectEnrollment[]
+
+  @@index([yearGroupId])
+}
+
+model ProjectEnrollment {
+  id             String        @id @default(cuid())
+  projectId      String
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User          @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  supervisorId   String?
+  supervisor     User?         @relation("SupervisedEnrollments", fields: [supervisorId], references: [id])
+  status         ProjectStatus @default(NOT_STARTED)
+  learningGoal   String?
+  productGoal    String?
+  criteriaLevels Json? // { "A": 7, "B": 6, "C": 6 }
+  updatedAt      DateTime      @updatedAt
+
+  meetings ProjectMeeting[]
+  journal  ProjectJournalEntry[]
+
+  @@unique([projectId, studentId])
+  @@index([supervisorId])
+}
+
+model ProjectMeeting {
+  id           String            @id @default(cuid())
+  enrollmentId String
+  enrollment   ProjectEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  meetingDate  DateTime
+  notes        String
+  createdById  String
+  createdAt    DateTime          @default(now())
+}
+
+model ProjectJournalEntry {
+  id           String            @id @default(cuid())
+  enrollmentId String
+  enrollment   ProjectEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content      String
+  createdAt    DateTime          @default(now())
+}
+
+// ─────────────────────────────── Portfolio ───────────────────────────────
+
+enum PortfolioEntryType {
+  NOTE
+  WEBSITE
+  FILE
+  PHOTO
+}
+
+// Manually added evidence of learning. The portfolio timeline also merges in
+// the student's task submissions (from the Submission model) at render time.
+model PortfolioEntry {
+  id          String             @id @default(cuid())
+  schoolId    String
+  studentId   String
+  student     User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  authorId    String
+  type        PortfolioEntryType
+  title       String
+  content     String? // NOTE body, or caption
+  url         String? // WEBSITE link
+  storagePath String? // FILE/PHOTO stored under uploads/
+  fileName    String?
+  fileSize    Int?
+  mimeType    String?
+  createdAt   DateTime           @default(now())
+
+  @@index([studentId, createdAt])
+}
+
+// MYP-style term grade: criteria A–D levels → final 1–7 → local equivalent
+model TermGrade {
+  id             String   @id @default(cuid())
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  termId         String
+  term           Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  studentId      String
+  criteriaLevels Json? // {"A": 7, "B": 6, "C": 5, "D": 6}
+  finalGrade     Int? // 1–7 (derived, stored for reporting)
+  atl            Json? // {"Communication": "Meeting", ...}
+  comment        String?
+  updatedAt      DateTime @updatedAt
+
+  @@unique([classId, termId, studentId])
+}

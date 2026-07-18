@@ -71,6 +71,7 @@ model User {
   supervisedEnrollments ProjectEnrollment[]  @relation("SupervisedEnrollments")
   projectJournalEntries ProjectJournalEntry[]
   portfolioEntries     PortfolioEntry[]
+  reportCards          ReportCard[]
 
   @@unique([schoolId, email])
   @@index([schoolId, role, archived])
@@ -158,8 +159,9 @@ model Term {
   endsOn         DateTime
   order          Int          @default(0)
 
-  classLinks ClassTerm[]
-  termGrades TermGrade[]
+  classLinks  ClassTerm[]
+  termGrades  TermGrade[]
+  reportCards ReportCard[]
 }
 
 // ─────────────────────────────── Year groups ───────────────────────────────
@@ -182,6 +184,7 @@ model YearGroup {
   memberships YearGroupMembership[]
   activities  Activity[]
   projects    Project[]
+  reportCards ReportCard[]
 
   @@index([schoolId, archived])
 }
@@ -508,6 +511,31 @@ model ProjectJournalEntry {
   author       User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   content      String
   createdAt    DateTime          @default(now())
+}
+
+// ─────────────────────────────── Reporting ───────────────────────────────
+
+// A generated report card. `content` is an immutable snapshot of the student's
+// term grades at generation time, so later grade edits don't change issued reports.
+model ReportCard {
+  id          String    @id @default(cuid())
+  schoolId    String
+  studentId   String
+  student     User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  termId      String
+  term        Term      @relation(fields: [termId], references: [id], onDelete: Cascade)
+  yearGroupId String
+  yearGroup   YearGroup @relation(fields: [yearGroupId], references: [id], onDelete: Cascade)
+  title       String
+  preparedOn  DateTime
+  publishedAt DateTime? // null = draft; set = visible to student & parents
+  content     Json
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([studentId, termId, title])
+  @@index([yearGroupId, termId, title])
 }
 
 // ─────────────────────────────── Portfolio ───────────────────────────────

@@ -67,8 +67,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <NavLink href="/tasks" label="Tasks & Deadlines" />
               <NavLink href="/activities" label="CAS & Service" />
               <NavLink href="/portfolio" label="Portfolio" />
+              {session.role === "STUDENT" && <NavLink href="/reports" label="My Reports" />}
               <NavLink href="/year-groups" label="Year Groups" />
               <NavLink href="/classes" label="Classes" />
+              {(isAdmin || session.role === "TEACHER") && (
+                <NavLink href="/reporting" label="Reporting" />
+              )}
               {isAdmin && <NavLink href="/directory" label="School Directory" />}
             </>
           )}

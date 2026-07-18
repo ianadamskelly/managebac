@@ -12,7 +12,7 @@ export default async function ChildOverviewPage({
   const { studentId } = await params;
   const { student } = await getChildContext(studentId);
 
-  const [classMemberships, termGrades, tasks, submissions, activities] = await Promise.all([
+  const [classMemberships, termGrades, tasks, submissions, activities, reports] = await Promise.all([
     db.classMembership.findMany({
       where: { userId: studentId, role: "STUDENT" },
       include: {
@@ -34,6 +34,11 @@ export default async function ChildOverviewPage({
     }),
     db.submission.findMany({ where: { studentId } }),
     db.activity.findMany({ where: { studentId } }),
+    db.reportCard.findMany({
+      where: { studentId, publishedAt: { not: null } },
+      include: { term: { include: { academicYear: true } } },
+      orderBy: { preparedOn: "desc" },
+    }),
   ]);
 
   // Latest term grade per class
@@ -150,6 +155,36 @@ export default async function ChildOverviewPage({
                     {submittedTaskIds.has(t.id) ? "SUBMITTED" : "NOT SUBMITTED"}
                   </span>
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <header className="px-5 py-3 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-800">Report Cards ({reports.length})</h2>
+        </header>
+        {reports.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-slate-500 text-center">
+            No published reports yet.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {reports.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/reports/${r.id}`}
+                  className="flex items-center justify-between px-5 py-3 hover:bg-slate-50"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{r.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {r.term.academicYear.name} · {r.term.name}
+                    </p>
+                  </div>
+                  <span className="text-sm text-blue-600">View →</span>
+                </Link>
               </li>
             ))}
           </ul>

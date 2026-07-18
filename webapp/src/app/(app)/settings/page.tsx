@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -20,6 +21,24 @@ export default async function SettingsPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-6">Settings</h1>
+
+      <section className="mb-6 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h2 className="font-semibold text-slate-800 mb-3">Admin</h2>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/settings/behaviour"
+            className="rounded-md border border-slate-300 text-slate-700 text-sm px-3 py-1.5 hover:bg-slate-50"
+          >
+            Behaviour Types
+          </Link>
+          <Link
+            href="/directory"
+            className="rounded-md border border-slate-300 text-slate-700 text-sm px-3 py-1.5 hover:bg-slate-50"
+          >
+            School Directory
+          </Link>
+        </div>
+      </section>
 
       <section className="mb-6 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
         <h2 className="font-semibold text-slate-800 mb-3">School</h2>

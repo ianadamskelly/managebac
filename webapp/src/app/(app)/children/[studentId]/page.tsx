@@ -12,7 +12,8 @@ export default async function ChildOverviewPage({
   const { studentId } = await params;
   const { student } = await getChildContext(studentId);
 
-  const [classMemberships, termGrades, tasks, submissions, activities, reports] = await Promise.all([
+  const [classMemberships, termGrades, tasks, submissions, activities, reports, behaviourNotes] =
+    await Promise.all([
     db.classMembership.findMany({
       where: { userId: studentId, role: "STUDENT" },
       include: {
@@ -38,6 +39,12 @@ export default async function ChildOverviewPage({
       where: { studentId, publishedAt: { not: null } },
       include: { term: { include: { academicYear: true } } },
       orderBy: { preparedOn: "desc" },
+    }),
+    db.behaviourNote.findMany({
+      where: { studentId },
+      include: { author: true },
+      orderBy: { incidentOn: "desc" },
+      take: 10,
     }),
   ]);
 
@@ -185,6 +192,44 @@ export default async function ChildOverviewPage({
                   </div>
                   <span className="text-sm text-blue-600">View →</span>
                 </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <header className="px-5 py-3 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-800">
+            Behaviour &amp; Discipline ({behaviourNotes.length})
+          </h2>
+        </header>
+        {behaviourNotes.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-slate-500 text-center">No behaviour notes.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {behaviourNotes.map((n) => (
+              <li key={n.id} className="px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                      n.positive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {n.title}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {n.incidentOn.toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-700 mt-1">{n.note}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  — {n.author.firstName} {n.author.lastName}
+                </p>
               </li>
             ))}
           </ul>

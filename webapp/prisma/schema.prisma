@@ -72,6 +72,8 @@ model User {
   projectJournalEntries ProjectJournalEntry[]
   portfolioEntries     PortfolioEntry[]
   reportCards          ReportCard[]
+  behaviourNotes       BehaviourNote[]       @relation("StudentBehaviourNotes")
+  authoredBehaviourNotes BehaviourNote[]     @relation("AuthoredBehaviourNotes")
 
   @@unique([schoolId, email])
   @@index([schoolId, role, archived])
@@ -511,6 +513,40 @@ model ProjectJournalEntry {
   author       User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   content      String
   createdAt    DateTime          @default(now())
+}
+
+// ─────────────────────────── Behaviour & Discipline ───────────────────────────
+
+// School-defined behaviour taxonomy (positive or negative).
+model BehaviourType {
+  id       String  @id @default(cuid())
+  schoolId String
+  title    String
+  positive Boolean @default(false)
+  order    Int     @default(0)
+
+  notes BehaviourNote[]
+
+  @@unique([schoolId, title])
+}
+
+model BehaviourNote {
+  id         String         @id @default(cuid())
+  schoolId   String
+  studentId  String
+  student    User           @relation("StudentBehaviourNotes", fields: [studentId], references: [id], onDelete: Cascade)
+  typeId     String?
+  type       BehaviourType? @relation(fields: [typeId], references: [id])
+  title      String // snapshot of the type title at time of writing
+  positive   Boolean        @default(false)
+  note       String
+  nextStep   String?
+  authorId   String
+  author     User           @relation("AuthoredBehaviourNotes", fields: [authorId], references: [id])
+  incidentOn DateTime
+  createdAt  DateTime       @default(now())
+
+  @@index([studentId, createdAt])
 }
 
 // ─────────────────────────────── Reporting ───────────────────────────────

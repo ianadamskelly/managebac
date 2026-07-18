@@ -77,7 +77,15 @@ export default async function DirectoryPage({
             {users.map((u) => (
               <tr key={u.id} className="hover:bg-slate-50">
                 <td className="px-5 py-3 font-medium text-slate-800">
-                  {u.lastName}, {u.firstName}
+                  {active.role === "STUDENT" ? (
+                    <Link href={`/students/${u.id}`} className="text-blue-700 hover:underline">
+                      {u.lastName}, {u.firstName}
+                    </Link>
+                  ) : (
+                    <>
+                      {u.lastName}, {u.firstName}
+                    </>
+                  )}
                 </td>
                 <td className="px-5 py-3 text-slate-600">{u.email}</td>
                 {active.role === "STUDENT" && (
